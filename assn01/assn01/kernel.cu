@@ -1,12 +1,13 @@
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "nne.cuh"
 
-#include <stdio.h>
+#include <iostream>
 #include <cstdlib>
 #include <ctime>
 
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
+//cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
 
 __global__ void addKernel(int *c, const int *a, const int *b)
 {
@@ -16,6 +17,23 @@ __global__ void addKernel(int *c, const int *a, const int *b)
 
 int main()
 {
+	Layer layer(2, 2);
+	std::vector<float> inputList;
+	srand((unsigned int)time(NULL));
+	std::cout << rand() << std::endl;
+	inputList.push_back(1);
+	inputList.push_back(1);
+	inputList.push_back(1);
+	cudaSetDevice(0);
+	layer.forwardCal(inputList);
+	for (int i = 0; i < 2; i++) {
+		std::cout << layer.nodeList[i]->inputWeightList[1] << " " << layer.nodeList[i]->inputWeightList[2] << std::endl;
+	}
+	for (int i = 0; i < 2; i++) {
+		std::cout << layer.nodeList[i]->output << std::endl;
+	}
+	//cudaError_t cudaStatus;
+	/*
     const int arraySize = 5;
     const int a[arraySize] = { 1, 2, 3, 4, 5 };
     const int b[arraySize] = { 10, 20, 30, 40, 50 };
@@ -32,18 +50,20 @@ int main()
 
     printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
         c[0], c[1], c[2], c[3], c[4]);
-
+	*/
     // cudaDeviceReset must be called before exiting in order for profiling and
     // tracing tools such as Nsight and Visual Profiler to show complete traces.
-    cudaStatus = cudaDeviceReset();
+    cudaDeviceReset();
+	/*
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaDeviceReset failed!");
         return 1;
     }
-
+	*/
     return 0;
 }
 
+/*
 // Helper function for using CUDA to add vectors in parallel.
 cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
 {
@@ -123,3 +143,4 @@ Error:
     
     return cudaStatus;
 }
+*/

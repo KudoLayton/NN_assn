@@ -20,5 +20,6 @@ public:
 	~Layer();
 	std::vector<Node*> nodeList;
 	void forwardCal(Layer& bLayer);
-	void backPropa(Layer& fLayer);
+	void forwardCal(std::vector<float>& inputList);
+	void backPropa(Layer& fLayer, float learningFactor);
 };
