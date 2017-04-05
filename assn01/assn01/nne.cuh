@@ -2,6 +2,8 @@
 #include <vector>
 #include "cuda_runtime.h"
 
+__global__ void nodeCal(float* inputList, float* weightList, float* outputList);
+
 class Node {
 public:
 	Node();//first input: constant/offset = 0
@@ -20,6 +22,4 @@ public:
 	~Layer();
 	std::vector<Node*> nodeList;
 	void backPropa(Layer& layer);
-private:
-	__global__ void nodeCal(float* inputList, float* weightList, float* outputList);
 };

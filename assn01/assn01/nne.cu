@@ -45,10 +45,10 @@ Layer::~Layer() {
 	}
 }
 
-void backPropa(Layer& layer) {
-
+void Layer::backPropa(Layer& layer) {
+	
 }
 
-__global__ void Layer::nodeCal(float* inputList, float* weightList, float* outputList) {
+__global__ void nodeCal(float* inputList, float* weightList, float* outputList){
 	
 }
