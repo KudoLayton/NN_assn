@@ -136,21 +136,21 @@ void Layer::forwardCal(Layer& bLayer){
 }
 
 void Layer::backPropa(Layer& fLayer, float learningFactor) {
-	std::vector<Node*> &fNodeList = fLayer.nodeList;
-	int inputNum = nodeList.size();
-	int outputNum = fNodeList.size();
-	std::vector<float> outputList;
+	std::vector<Node*> &bNodeList = bLayer.nodeList;
+	int inputNum = bNodeList.size();
+	int outputNum = nodeList.size();
 	std::vector<float> inputList;
-	float* wList = new float[inputNum];
+	std::vector<float> weightList;
+	float* outputList = new float[outputNum];
 	float *dInputList, *dWeightList, *dOutputList;
 
 	cudaMalloc(&dInputList, inputNum * sizeof(float));
 	cudaMalloc(&dWeightList, inputNum * outputNum * sizeof(float));
 	cudaMalloc(&dOutputList, outputNum * sizeof(float));
 
-	outputList.push_back(1);
+	inputList.push_back(1);
 	for (int i = 0; i < inputNum; i++) {
-		inputList.push_back((*fNodeList[i]).output);
+		inputList.push_back((*bNodeList[i]).output);
 	}
 	inputNum++;
 
