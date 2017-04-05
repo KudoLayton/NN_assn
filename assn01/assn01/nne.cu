@@ -1,6 +1,9 @@
 #include "nne.cuh"
 #include <cstdlib>
 
+__global__ void nodeCal(float* inList, float* wList, float* outList);
+__global__ void nodeLearn(float* inList, float* wList, float* outList, float* nWList);
+
 Node::Node() : output(0){
 	inputWeightList.push_back(0);
 }
@@ -45,10 +48,18 @@ Layer::~Layer() {
 	}
 }
 
+void Layer::forwardCal(Layer& fLayer){
+	
+}
+
 void Layer::backPropa(Layer& layer) {
 	
 }
 
 __global__ void nodeCal(float* inputList, float* weightList, float* outputList){
+	
+}
+
+__global__ void nodeLearn(float* inList, float* wList, float* outList, float* nWList){
 	
 }
