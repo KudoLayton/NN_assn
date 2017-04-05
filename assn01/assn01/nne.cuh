@@ -10,6 +10,8 @@ public:
 	~Node();
 	std::vector<float> inputWeightList;
 	float output;
+	float input;
+	float localGrad;
 };
 
 class Layer {
@@ -21,5 +23,6 @@ public:
 	std::vector<Node*> nodeList;
 	void forwardCal(Layer& bLayer);
 	void forwardCal(std::vector<float>& inputList);
+	float backPropa(std::vector<float>& answerList, float learningFactor);
 	void backPropa(Layer& fLayer, float learningFactor);
 };
