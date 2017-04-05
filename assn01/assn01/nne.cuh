@@ -19,6 +19,6 @@ public:
 	Layer(std::vector<float>& inputWeightList, int nodeListLength, int inputWeightLength);
 	~Layer();
 	std::vector<Node*> nodeList;
-	void forwardCal(Layer& fLayer);
-	void backPropa(Layer& bLayer);
+	void forwardCal(Layer& bLayer);
+	void backPropa(Layer& fLayer);
 };

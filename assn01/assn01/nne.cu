@@ -48,11 +48,11 @@ Layer::~Layer() {
 	}
 }
 
-void Layer::forwardCal(Layer& fLayer){
+void Layer::forwardCal(Layer& bLayer){
 	
 }
 
-void Layer::backPropa(Layer& layer) {
+void Layer::backPropa(Layer& flayer) {
 	
 }
 
