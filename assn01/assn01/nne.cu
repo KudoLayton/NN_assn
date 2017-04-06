@@ -7,6 +7,8 @@
 __global__ void nodeCal(float* inList, float* wList, float* outList, int inputNum);
 __global__ void nodeLog(float* outputList);
 __global__ void nodeGradCal(float* inputList, float* wList, float* outputList, float* gradList, int outputNum);
+__global__ void nodeDelLog(float* inputList, float* gradList);
+__global__ void nodeLearn(float *inputList, float *delList, float *weightList, float learningFactor, int inputNum);
 
 Node::Node() : output(0), input(0), localGrad(0) {
 	inputWeightList.push_back(0);
@@ -165,20 +167,117 @@ void Layer::getGrad(Layer& fLayer) {
 	cudaMemcpy(dWeightList, weightList.data(), inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
 	nodeGradCal <<<inputNum, outputNum, sizeof(float) * outputNum >>> (dInputList, dWeightList, dOutputList, dGradList, inputNum);
+	nodeDelLog <<<1, inputNum >>> (dInputList, dGradList);
 	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 
+	cudaFree(dInputList);
+	cudaFree(dWeightList);
+	cudaFree(dOutputList);
+	cudaFree(dGradList);
+
+	for (int i = 0; i < inputNum; i++) {
+		nodeList[i]->localGrad = gradList[i];
+	}
+
+	delete gradList;
+}
+
+float Layer::getGrad(std::vector<float>& answerList) {
+	int inputNum = nodeList.size();
+	std::vector<float> inputList;
+	std::vector<float> outputList;
+	float *gradList = new float[inputNum];
+	float *dInputList, *dOutputList, *dGradList, mse = 0;
+
+	cudaMalloc(&dInputList, inputNum * sizeof(float));
+	cudaMalloc(&dOutputList, inputNum * sizeof(float));
+	cudaMalloc(&dGradList, inputNum * sizeof(float));
+
+	for (int i = 0; i < inputNum; i++) {
+		inputList.push_back(nodeList[i]->input);
+		outputList.push_back(answerList[i] - nodeList[i]->localGrad);
+	}
+	memcpy(gradList, outputList.data(), inputNum * sizeof(float));
+
+	cudaMemcpy(dInputList, inputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(dOutputList, outputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 
 	for (int i = 0; i < inputNum; i++) {
 		nodeList[i]->localGrad = gradList[i];
 	}
 	cudaFree(dInputList);
-	cudaFree(dWeightList);
 	cudaFree(dOutputList);
 	cudaFree(dGradList);
+
+	for (int i = 0; i < inputNum; i++) {
+		nodeList[i]->localGrad = gradList[i];
+	}
+
+	delete gradList;
+	for (int i = 0; i < inputNum; i++) {
+		mse += outputList[i] * outputList[i];
+	}
+	mse /= inputNum;
+	return mse;
 }
 
-void Layer::backPropa(Layer& fLayer, float learningFactor) {
-	
+void Layer::learnWeight(Layer& bLayer, float learningFactor) {
+	std::vector<Node*> &bNodeList = bLayer.nodeList;
+	int inputNum = bNodeList.size() + 1;
+	int outputNum = nodeList.size();
+	std::vector<float> inputList;
+	std::vector<float> delList;
+	float *weightList = new float[inputNum * outputNum];
+	float *dInputList, *dDelList, *dWeightList;
+	dim3 threadGrid(inputNum, outputNum);
+	cudaMalloc(&dInputList, inputNum * sizeof(float));
+	cudaMalloc(&dDelList, outputNum * sizeof(float));
+	cudaMalloc(&dWeightList, inputNum * outputNum * sizeof(float));
+
+	inputList.push_back(1);
+
+	for (int i = 0; i < inputNum; i++) {
+		inputList.push_back(bNodeList[i]->output);
+	}
+
+	cudaMemcpy(dInputList, inputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
+
+	for (int i = 0; i < outputNum; i++) {
+		memcpy(weightList + i * inputNum, nodeList[i]->inputWeightList.data(), inputNum * sizeof(float));
+		delList.push_back(nodeList[i]->localGrad);
+	}
+
+	cudaMemcpy(dWeightList, weightList, inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(dDelList, delList.data(), outputNum * sizeof(float), cudaMemcpyHostToDevice);
+
+	nodeLearn <<<1, threadGrid >>> (dInputList, dDelList, dWeightList, learningFactor, inputNum);
+}
+
+void Layer::learnWeight(std::vector<float>& inputList, float learningFactor){
+	int inputNum = inputList.size() + 1;
+	int outputNum = nodeList.size();
+	std::vector<float> delList;
+	float *weightList = new float[inputNum * outputNum];
+	float *dInputList, *dDelList, *dWeightList;
+	dim3 threadGrid(inputNum, outputNum);
+	cudaMalloc(&dInputList, inputNum * sizeof(float));
+	cudaMalloc(&dDelList, outputNum * sizeof(float));
+	cudaMalloc(&dWeightList, inputNum * outputNum * sizeof(float));
+
+	inputList.insert(inputList.begin(), 1);
+
+	cudaMemcpy(dInputList, inputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
+
+	for (int i = 0; i < outputNum; i++) {
+		memcpy(weightList + i * inputNum, nodeList[i]->inputWeightList.data(), inputNum * sizeof(float));
+		delList.push_back(nodeList[i]->localGrad);
+	}
+
+	cudaMemcpy(dWeightList, weightList, inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(dDelList, delList.data(), outputNum * sizeof(float), cudaMemcpyHostToDevice);
+
+	nodeLearn <<<1, threadGrid >>> (dInputList, dDelList, dWeightList, learningFactor, inputNum);
 }
 
 __global__ void nodeCal(float* inputList, float* weightList, float* outputList, int inputNum){
@@ -200,19 +299,24 @@ __global__ void nodeLog(float* outputList) {
 __global__ void nodeGradCal(float* inputList, float* wList, float* outputList, float* gradList, int outputNum) {
 	int weightIdx = blockIdx.x + threadIdx.x * blockDim.x;
 	extern __shared__ float results[];
-	float result = 0, temp;
+	float result = 0;
 	results[threadIdx.x] = outputList[threadIdx.x] * wList[weightIdx];
 	__syncthreads();
 	for (int i = 0; i < outputNum; i++) {
 		result += results[i];
 	}
-	temp = cosh(inputList[blockIdx.x]);
-	temp *= temp;
-	temp = 1 / temp;
-	result *= temp;
 	gradList[blockIdx.x] = result;
 }
 
-__global__ void nodeLearn(float input, float learnConst, float* wList, float* outList) {
+__global__ void nodeDelLog(float* inputList, float* gradList) {
+	float temp;
+	temp = cosh(inputList[threadIdx.x]);
+	temp *= temp;
+	temp = 1 / temp;
+	gradList[threadIdx.x] *= temp;
+}
 
+__global__ void nodeLearn(float *inputList, float *delList, float *weightList, float learningFactor, int inputNum) {
+	int weightIdx = threadIdx.x + threadIdx.y * inputNum;
+	weightList[weightIdx] += inputList[threadIdx.x] * delList[threadIdx.y] * learningFactor;
 }

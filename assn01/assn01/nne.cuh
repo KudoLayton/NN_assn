@@ -24,6 +24,7 @@ public:
 	void forwardCal(Layer& bLayer);
 	void forwardCal(std::vector<float>& inputList);
 	void getGrad(Layer& fLayer);
-	float backPropa(std::vector<float>& answerList, float learningFactor);
-	void backPropa(Layer& fLayer, float learningFactor);
+	float getGrad(std::vector<float>& answerList); // output: MSE
+	void learnWeight(Layer& bLayer, float learningFactor);
+	void learnWeight(std::vector<float>& inputList, float learningFactor);
 };
