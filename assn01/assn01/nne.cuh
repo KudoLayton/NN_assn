@@ -23,8 +23,7 @@ public:
 	std::vector<Node*> nodeList;
 	void forwardCal(Layer& bLayer);
 	void forwardCal(std::vector<float>& inputList);
-	void getDelta(Layer& fLayer);
-
+	void getGrad(Layer& fLayer);
 	float backPropa(std::vector<float>& answerList, float learningFactor);
 	void backPropa(Layer& fLayer, float learningFactor);
 };
