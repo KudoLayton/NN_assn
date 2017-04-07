@@ -57,7 +57,7 @@ Layer::~Layer() {
 }
 
 void Layer::forwardCal(std::vector<float>& inputList) {
-	int inputNum = inputList.size();
+	int inputNum = inputList.size() + 1;
 	int outputNum = nodeList.size();
 	std::vector<float> weightList;
 	float* outputList = new float[outputNum];
@@ -67,6 +67,8 @@ void Layer::forwardCal(std::vector<float>& inputList) {
 	cudaMalloc(&dWeightList, inputNum * outputNum * sizeof(float));
 	cudaMalloc(&dOutputList, outputNum * sizeof(float));
 
+	inputList.insert(inputList.begin(), 1);
+
 	cudaMemcpy(dInputList, inputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
 
 	for (int i = 0; i < outputNum; i++) {
@@ -74,7 +76,7 @@ void Layer::forwardCal(std::vector<float>& inputList) {
 	}
 
 	cudaMemcpy(dWeightList, weightList.data(), inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(dOutputList, outputList, outputNum * sizeof(float), cudaMemcpyHostToDevice);
+	//cudaMemcpy(dOutputList, outputList, outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
 	nodeCal <<<outputNum, inputNum, sizeof(float) * inputNum>>> (dInputList, dWeightList, dOutputList, inputNum);
 	cudaMemcpy(outputList, dOutputList, outputNum * sizeof(float), cudaMemcpyDeviceToHost);
@@ -91,6 +93,7 @@ void Layer::forwardCal(std::vector<float>& inputList) {
 		nodeList[i]->output = outputList[i];
 	}
 	delete outputList;
+	inputList.erase(inputList.begin());
 }
 
 void Layer::forwardCal(Layer& bLayer){
@@ -102,8 +105,8 @@ void Layer::forwardCal(Layer& bLayer){
 	float* outputList = new float[outputNum];
 	float *dInputList, *dWeightList, *dOutputList;
 	
-	cudaMalloc(&dInputList, inputNum * sizeof(float));
-	cudaMalloc(&dWeightList, inputNum * outputNum * sizeof(float));
+	cudaMalloc(&dInputList, (inputNum + 1) * sizeof(float));
+	cudaMalloc(&dWeightList, (inputNum + 1) * outputNum * sizeof(float));
 	cudaMalloc(&dOutputList, outputNum * sizeof(float));
 	
 	inputList.push_back(1);
@@ -119,7 +122,7 @@ void Layer::forwardCal(Layer& bLayer){
 	}
 
 	cudaMemcpy(dWeightList, weightList.data(), inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(dOutputList, outputList, outputNum * sizeof(float), cudaMemcpyHostToDevice);
+	//cudaMemcpy(dOutputList, outputList, outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
 	nodeCal <<<outputNum, inputNum, sizeof(float) * inputNum >>> (dInputList, dWeightList, dOutputList, inputNum);
 	cudaMemcpy(outputList, dOutputList, outputNum * sizeof(float), cudaMemcpyDeviceToHost);
@@ -195,12 +198,14 @@ float Layer::getGrad(std::vector<float>& answerList) {
 
 	for (int i = 0; i < inputNum; i++) {
 		inputList.push_back(nodeList[i]->input);
-		outputList.push_back(answerList[i] - nodeList[i]->localGrad);
+		outputList.push_back(answerList[i] - nodeList[i]->output);
 	}
 	memcpy(gradList, outputList.data(), inputNum * sizeof(float));
 
 	cudaMemcpy(dInputList, inputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(dOutputList, outputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(dGradList, gradList, inputNum * sizeof(float), cudaMemcpyHostToDevice);
+
+	nodeDelLog <<<1, inputNum >>> (dInputList, dGradList);
 	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 
 	for (int i = 0; i < inputNum; i++) {
@@ -209,10 +214,6 @@ float Layer::getGrad(std::vector<float>& answerList) {
 	cudaFree(dInputList);
 	cudaFree(dOutputList);
 	cudaFree(dGradList);
-
-	for (int i = 0; i < inputNum; i++) {
-		nodeList[i]->localGrad = gradList[i];
-	}
 
 	delete gradList;
 	for (int i = 0; i < inputNum; i++) {
@@ -224,22 +225,24 @@ float Layer::getGrad(std::vector<float>& answerList) {
 
 void Layer::learnWeight(Layer& bLayer, float learningFactor) {
 	std::vector<Node*> &bNodeList = bLayer.nodeList;
-	int inputNum = bNodeList.size() + 1;
+	int inputNum = bNodeList.size();
 	int outputNum = nodeList.size();
 	std::vector<float> inputList;
 	std::vector<float> delList;
-	float *weightList = new float[inputNum * outputNum];
+	float *weightList = new float[(inputNum + 1) * outputNum];
 	float *dInputList, *dDelList, *dWeightList;
 	dim3 threadGrid(inputNum, outputNum);
-	cudaMalloc(&dInputList, inputNum * sizeof(float));
+	cudaMalloc(&dInputList, (inputNum + 1) * sizeof(float));
 	cudaMalloc(&dDelList, outputNum * sizeof(float));
-	cudaMalloc(&dWeightList, inputNum * outputNum * sizeof(float));
+	cudaMalloc(&dWeightList, (inputNum + 1) * outputNum * sizeof(float));
 
 	inputList.push_back(1);
 
 	for (int i = 0; i < inputNum; i++) {
 		inputList.push_back(bNodeList[i]->output);
 	}
+
+	inputNum++;
 
 	cudaMemcpy(dInputList, inputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
 
@@ -252,6 +255,20 @@ void Layer::learnWeight(Layer& bLayer, float learningFactor) {
 	cudaMemcpy(dDelList, delList.data(), outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
 	nodeLearn <<<1, threadGrid >>> (dInputList, dDelList, dWeightList, learningFactor, inputNum);
+
+	cudaMemcpy(weightList, dWeightList, inputNum * outputNum * sizeof(float), cudaMemcpyDeviceToHost);
+
+	for (int i = 0; i < outputNum; i++) {
+		for (int j = 0; j < inputNum; j++) {
+			nodeList[i]->inputWeightList[j] = weightList[i * inputNum + j];
+		}
+	}
+
+	cudaFree(dInputList);
+	cudaFree(dDelList);
+	cudaFree(dWeightList);
+
+	delete weightList;
 }
 
 void Layer::learnWeight(std::vector<float>& inputList, float learningFactor){
@@ -278,10 +295,25 @@ void Layer::learnWeight(std::vector<float>& inputList, float learningFactor){
 	cudaMemcpy(dDelList, delList.data(), outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
 	nodeLearn <<<1, threadGrid >>> (dInputList, dDelList, dWeightList, learningFactor, inputNum);
+
+	cudaMemcpy(weightList, dWeightList, inputNum * outputNum * sizeof(float), cudaMemcpyDeviceToHost);
+
+	for (int i = 0; i < outputNum; i++) {
+		for (int j = 0; j < inputNum; j++) {
+			nodeList[i]->inputWeightList[j] = weightList[i * inputNum + j];
+		}
+	}
+
+	cudaFree(dInputList);
+	cudaFree(dDelList);
+	cudaFree(dWeightList);
+
+	delete weightList;
+	inputList.erase(inputList.begin());
 }
 
 __global__ void nodeCal(float* inputList, float* weightList, float* outputList, int inputNum){
-	int outputIdx = blockIdx.x * blockDim.x + threadIdx.x;
+	int outputIdx = blockIdx.x * inputNum + threadIdx.x  ;
 	float result = 0;
 	extern __shared__ float results[];
 	results[threadIdx.x] = inputList[threadIdx.x] * weightList[outputIdx];
