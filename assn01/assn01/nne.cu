@@ -325,7 +325,7 @@ __global__ void nodeCal(float* inputList, float* weightList, float* outputList, 
 }
 
 __global__ void nodeLog(float* outputList) {
-	outputList[threadIdx.x] = tanh(outputList[threadIdx.x]);
+	outputList[threadIdx.x] = tanh(0.01 * outputList[threadIdx.x]);
 }
 
 __global__ void nodeGradCal(float* inputList, float* wList, float* outputList, float* gradList, int outputNum) {
@@ -342,9 +342,9 @@ __global__ void nodeGradCal(float* inputList, float* wList, float* outputList, f
 
 __global__ void nodeDelLog(float* inputList, float* gradList) {
 	float temp;
-	temp = cosh(inputList[threadIdx.x]);
+	temp = cosh(0.01 * inputList[threadIdx.x]);
 	temp *= temp;
-	temp = 1 / temp;
+	temp = 0.01 / temp;
 	gradList[threadIdx.x] *= temp;
 }
 
