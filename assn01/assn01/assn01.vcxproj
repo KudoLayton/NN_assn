@@ -151,8 +151,8 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="kernel.cu" />
     <CudaCompile Include="nne.cu" />
+    <CudaCompile Include="Q2.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="nne.cuh" />
