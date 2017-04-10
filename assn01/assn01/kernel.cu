@@ -20,7 +20,7 @@ int main()
 	outputList.push_back(0);
 	cudaSetDevice(0);
 
-	for (int i = 0; i < 400; i++) {
+	for (int i = 0; i < 20; i++) {
 		inputLayer.forwardCal(inputList);
 		hiddenLayer.forwardCal(inputLayer);
 		outputLayer.forwardCal(hiddenLayer);
@@ -28,9 +28,9 @@ int main()
 		std::cout << EMS << std::endl;
 		hiddenLayer.getGrad(outputLayer);
 		inputLayer.getGrad(hiddenLayer);
-		inputLayer.learnWeight(inputList, 0.1);
-		hiddenLayer.learnWeight(inputLayer, 0.1);
-		outputLayer.learnWeight(hiddenLayer, 0.1);
+		inputLayer.learnWeight(inputList, 0.4);
+		hiddenLayer.learnWeight(inputLayer, 0.4);
+		outputLayer.learnWeight(hiddenLayer, 0.4);
 	}
 
     cudaDeviceReset();

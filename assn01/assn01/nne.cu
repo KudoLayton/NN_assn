@@ -5,9 +5,9 @@
 #include <cstdlib>
 
 __global__ void nodeCal(float* inList, float* wList, float* outList, int inputNum);
-__global__ void nodeLog(float* outputList);
+__global__ void nodeLog(float* outputList, float sigmoidConst);
 __global__ void nodeGradCal(float* inputList, float* wList, float* outputList, float* gradList, int outputNum);
-__global__ void nodeDelLog(float* inputList, float* gradList);
+__global__ void nodeDelLog(float* inputList, float* gradList, float sigmoidConst);
 __global__ void nodeLearn(float *inputList, float *delList, float *weightList, float learningFactor, int inputNum);
 
 Node::Node() : output(0), input(0), localGrad(0) {
@@ -31,18 +31,20 @@ Node::Node(std::vector<float>& inputWeightList, int nodeIndex, int inputWeightLe
 
 Node::~Node() {}
 
-Layer::Layer(){}
+Layer::Layer() : sigmoidConst(0.01) {}
 
-Layer::Layer(int nodeListLength, int inputWeightLength) {
+Layer::Layer(int nodeListLength, int inputWeightLength, float sigmoidConst){
 	Node* newNode;
+	this->sigmoidConst = sigmoidConst;
 	for (int i = 0; i < nodeListLength; i++) {
 		newNode = new Node(inputWeightLength);
 		nodeList.push_back(newNode);
 	}
 }
 
-Layer::Layer(std::vector<float>& inputWeightList, int nodeListLength, int inputWeightLength) {
+Layer::Layer(std::vector<float>& inputWeightList, int nodeListLength, int inputWeightLength, float sigmoidConst) {
 	Node* newNode;
+	this->sigmoidConst = sigmoidConst;
 	for (int i = 0; i < nodeListLength; i++) {
 		newNode = new Node(inputWeightList, i, inputWeightLength);
 		nodeList.push_back(newNode);
@@ -84,7 +86,7 @@ void Layer::forwardCal(std::vector<float>& inputList) {
 		nodeList[i]->input = outputList[i];
 	}
 
-	nodeLog <<<1, outputNum >>> (dOutputList);
+	nodeLog <<<1, outputNum >>> (dOutputList, sigmoidConst);
 	cudaMemcpy(outputList, dOutputList, outputNum * sizeof(float), cudaMemcpyDeviceToHost);
 	cudaFree(dInputList);
 	cudaFree(dWeightList);
@@ -129,7 +131,7 @@ void Layer::forwardCal(Layer& bLayer){
 	for (int i = 0; i < outputNum; i++) {
 		nodeList[i]->input = outputList[i];
 	}
-	nodeLog <<<1, outputNum >>> (dOutputList);
+	nodeLog <<<1, outputNum >>> (dOutputList, sigmoidConst);
 	cudaMemcpy(outputList, dOutputList, outputNum * sizeof(float), cudaMemcpyDeviceToHost);
 	cudaFree(dInputList);
 	cudaFree(dWeightList);
@@ -170,7 +172,7 @@ void Layer::getGrad(Layer& fLayer) {
 	cudaMemcpy(dWeightList, weightList.data(), inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
 	nodeGradCal <<<inputNum, outputNum, sizeof(float) * outputNum >>> (dInputList, dWeightList, dOutputList, dGradList, inputNum);
-	nodeDelLog <<<1, inputNum >>> (dInputList, dGradList);
+	nodeDelLog <<<1, inputNum >>> (dInputList, dGradList, sigmoidConst);
 	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 
 	cudaFree(dInputList);
@@ -205,7 +207,7 @@ float Layer::getGrad(std::vector<float>& answerList) {
 	cudaMemcpy(dInputList, inputList.data(), inputNum * sizeof(float), cudaMemcpyHostToDevice);
 	cudaMemcpy(dGradList, gradList, inputNum * sizeof(float), cudaMemcpyHostToDevice);
 
-	nodeDelLog <<<1, inputNum >>> (dInputList, dGradList);
+	nodeDelLog <<<1, inputNum >>> (dInputList, dGradList, sigmoidConst);
 	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 
 	for (int i = 0; i < inputNum; i++) {
@@ -324,8 +326,8 @@ __global__ void nodeCal(float* inputList, float* weightList, float* outputList, 
 	outputList[blockIdx.x] = result;
 }
 
-__global__ void nodeLog(float* outputList) {
-	outputList[threadIdx.x] = tanh(0.01 * outputList[threadIdx.x]);
+__global__ void nodeLog(float* outputList, float sigmoidConst) {
+	outputList[threadIdx.x] = tanh(sigmoidConst * outputList[threadIdx.x]);
 }
 
 __global__ void nodeGradCal(float* inputList, float* wList, float* outputList, float* gradList, int outputNum) {
@@ -340,11 +342,11 @@ __global__ void nodeGradCal(float* inputList, float* wList, float* outputList, f
 	gradList[blockIdx.x] = result;
 }
 
-__global__ void nodeDelLog(float* inputList, float* gradList) {
+__global__ void nodeDelLog(float* inputList, float* gradList, float sigmoidConst) {
 	float temp;
-	temp = cosh(0.01 * inputList[threadIdx.x]);
+	temp = cosh(sigmoidConst * inputList[threadIdx.x]);
 	temp *= temp;
-	temp = 0.01 / temp;
+	temp = sigmoidConst / temp;
 	gradList[threadIdx.x] *= temp;
 }
 

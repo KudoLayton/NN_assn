@@ -17,10 +17,11 @@ public:
 class Layer {
 public:
 	Layer();
-	Layer(int nodeListLength, int inputWeightLength);
-	Layer(std::vector<float>& inputWeightList, int nodeListLength, int inputWeightLength);
+	Layer(int nodeListLength, int inputWeightLength, float sigmoidConst = 0.01);
+	Layer(std::vector<float>& inputWeightList, int nodeListLength, int inputWeightLength, float sigmoidConst = 0.01);
 	~Layer();
 	std::vector<Node*> nodeList;
+	float sigmoidConst;
 	void forwardCal(Layer& bLayer);
 	void forwardCal(std::vector<float>& inputList);
 	void getGrad(Layer& fLayer);
