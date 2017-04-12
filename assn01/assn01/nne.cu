@@ -22,10 +22,11 @@ Node::Node(int inputNum) : output(0), input(0), localGrad(0) {
 }
 
 Node::Node(std::vector<float>& inputWeightList, int nodeIndex, int inputWeightLength) : output(0), input(0), localGrad(0) {
+	inputWeightLength++;
 	int offset = nodeIndex * inputWeightLength;
-	inputWeightList.push_back(0);
+	//inputWeightList.push_back(0);
 	for (int i = 0; i < inputWeightLength; i++) {
-		inputWeightList.push_back(inputWeightList[offset + i]);
+		this->inputWeightList.push_back(inputWeightList[offset + i]);
 	}
 }
 
@@ -234,7 +235,7 @@ void Layer::learnWeight(Layer& bLayer, float learningFactor) {
 	std::vector<float> delList;
 	float *weightList = new float[(inputNum + 1) * outputNum];
 	float *dInputList, *dDelList, *dWeightList;
-	dim3 threadGrid(inputNum, outputNum);
+	dim3 threadGrid(inputNum + 1, outputNum);
 	cudaMalloc(&dInputList, (inputNum + 1) * sizeof(float));
 	cudaMalloc(&dDelList, outputNum * sizeof(float));
 	cudaMalloc(&dWeightList, (inputNum + 1) * outputNum * sizeof(float));
@@ -334,7 +335,7 @@ __global__ void nodeLog(float* outputList, float sigmoidConst) {
 }
 
 __global__ void nodeGradCal(float* wList, float* outputList, float* gradList) {
-	int weightIdx = blockIdx.x + threadIdx.x * gridDim.x;
+	int weightIdx = blockIdx.x * blockDim.x + threadIdx.x;
 	extern __shared__ float results[];
 	float result = 0;
 	results[threadIdx.x] = outputList[threadIdx.x] * wList[weightIdx];
