@@ -4,9 +4,9 @@
 #include "device_launch_parameters.h"
 #include <cstdlib>
 
-__global__ void nodeCal(float* inList, float* wList, float* outList, int inputNum);
+__global__ void nodeCal(float* inList, float* wList, float* outList);
 __global__ void nodeLog(float* outputList, float sigmoidConst);
-__global__ void nodeGradCal(float* inputList, float* wList, float* outputList, float* gradList, int outputNum);
+__global__ void nodeGradCal(float* wList, float* outputList, float* gradList);
 __global__ void nodeDelLog(float* inputList, float* gradList, float sigmoidConst);
 __global__ void nodeLearn(float *inputList, float *delList, float *weightList, float learningFactor, int inputNum);
 
@@ -80,7 +80,7 @@ void Layer::forwardCal(std::vector<float>& inputList) {
 	cudaMemcpy(dWeightList, weightList.data(), inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
 	//cudaMemcpy(dOutputList, outputList, outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
-	nodeCal <<<outputNum, inputNum, sizeof(float) * inputNum>>> (dInputList, dWeightList, dOutputList, inputNum);
+	nodeCal <<<outputNum, inputNum, sizeof(float) * inputNum>>> (dInputList, dWeightList, dOutputList);
 	cudaMemcpy(outputList, dOutputList, outputNum * sizeof(float), cudaMemcpyDeviceToHost);
 	for (int i = 0; i < outputNum; i++) {
 		nodeList[i]->input = outputList[i];
@@ -126,7 +126,7 @@ void Layer::forwardCal(Layer& bLayer){
 	cudaMemcpy(dWeightList, weightList.data(), inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
 	//cudaMemcpy(dOutputList, outputList, outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
-	nodeCal <<<outputNum, inputNum, sizeof(float) * inputNum >>> (dInputList, dWeightList, dOutputList, inputNum);
+	nodeCal <<<outputNum, inputNum, sizeof(float) * inputNum >>> (dInputList, dWeightList, dOutputList);
 	cudaMemcpy(outputList, dOutputList, outputNum * sizeof(float), cudaMemcpyDeviceToHost);
 	for (int i = 0; i < outputNum; i++) {
 		nodeList[i]->input = outputList[i];
@@ -171,7 +171,8 @@ void Layer::getGrad(Layer& fLayer) {
 	cudaMemcpy(dOutputList, outputList.data(), outputNum * sizeof(float), cudaMemcpyHostToDevice);
 	cudaMemcpy(dWeightList, weightList.data(), inputNum * outputNum * sizeof(float), cudaMemcpyHostToDevice);
 
-	nodeGradCal <<<inputNum, outputNum, sizeof(float) * outputNum >>> (dInputList, dWeightList, dOutputList, dGradList, inputNum);
+	nodeGradCal <<<inputNum, outputNum, sizeof(float) * outputNum >>> (dWeightList, dOutputList, dGradList);
+	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 	nodeDelLog <<<1, inputNum >>> (dInputList, dGradList, sigmoidConst);
 	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 
@@ -314,13 +315,15 @@ void Layer::learnWeight(std::vector<float>& inputList, float learningFactor){
 	inputList.erase(inputList.begin());
 }
 
-__global__ void nodeCal(float* inputList, float* weightList, float* outputList, int inputNum){
-	int outputIdx = blockIdx.x * inputNum + threadIdx.x  ;
+__global__ void nodeCal(float* inputList, float* weightList, float* outputList){
+	//int outputIdx = blockIdx.x * inputNum + threadIdx.x  ;
+	int outputIdx = blockIdx.x * blockDim.x + threadIdx.x;
 	float result = 0;
 	extern __shared__ float results[];
 	results[threadIdx.x] = inputList[threadIdx.x] * weightList[outputIdx];
 	__syncthreads();
-	for (int i = 0; i < inputNum; i++) {
+	//for (int i = 0; i < inputNum; i++) {
+	for (int i = 0; i < blockDim.x; i++) {
 		result += results[i];
 	}
 	outputList[blockIdx.x] = result;
@@ -330,13 +333,13 @@ __global__ void nodeLog(float* outputList, float sigmoidConst) {
 	outputList[threadIdx.x] = tanh(sigmoidConst * outputList[threadIdx.x]);
 }
 
-__global__ void nodeGradCal(float* inputList, float* wList, float* outputList, float* gradList, int outputNum) {
-	int weightIdx = blockIdx.x + threadIdx.x * blockDim.x;
+__global__ void nodeGradCal(float* wList, float* outputList, float* gradList) {
+	int weightIdx = blockIdx.x + threadIdx.x * gridDim.x;
 	extern __shared__ float results[];
 	float result = 0;
 	results[threadIdx.x] = outputList[threadIdx.x] * wList[weightIdx];
 	__syncthreads();
-	for (int i = 0; i < outputNum; i++) {
+	for (int i = 0; i < blockDim.x; i++) {
 		result += results[i];
 	}
 	gradList[blockIdx.x] = result;
@@ -352,5 +355,6 @@ __global__ void nodeDelLog(float* inputList, float* gradList, float sigmoidConst
 
 __global__ void nodeLearn(float *inputList, float *delList, float *weightList, float learningFactor, int inputNum) {
 	int weightIdx = threadIdx.x + threadIdx.y * inputNum;
+	//int weightIdx = threadIdx.x + threadIdx.y * blockDim.x;
 	weightList[weightIdx] += inputList[threadIdx.x] * delList[threadIdx.y] * learningFactor;
 }
