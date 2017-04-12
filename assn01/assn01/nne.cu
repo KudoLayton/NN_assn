@@ -335,7 +335,7 @@ __global__ void nodeLog(float* outputList, float sigmoidConst) {
 }
 
 __global__ void nodeGradCal(float* wList, float* outputList, float* gradList) {
-	int weightIdx = blockIdx.x * blockDim.x + threadIdx.x;
+	int weightIdx = blockIdx.x + threadIdx.x * gridDim.x;
 	extern __shared__ float results[];
 	float result = 0;
 	results[threadIdx.x] = outputList[threadIdx.x] * wList[weightIdx];
