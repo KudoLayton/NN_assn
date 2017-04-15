@@ -183,7 +183,10 @@ void Layer::getGrad(Layer& fLayer, int batchNum) {
 	cudaFree(dGradList);
 
 	for (int i = 0; i < inputNum; i++) {
-		nodeList[i]->localGrad += gradList[i]/batchNum;
+		if (batchNum > 1)
+			nodeList[i]->localGrad += gradList[i] / batchNum;
+		else
+			nodeList[i]->localGrad = gradList[i];
 	}
 
 	delete gradList;
@@ -213,7 +216,10 @@ float Layer::getGrad(std::vector<float>& answerList, int batchNum) {
 	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 
 	for (int i = 0; i < inputNum; i++) {
-		nodeList[i]->localGrad += gradList[i]/batchNum;
+		if(batchNum > 1)
+			nodeList[i]->localGrad += gradList[i]/batchNum;
+		else
+			nodeList[i]->localGrad = gradList[i];
 	}
 	cudaFree(dInputList);
 	cudaFree(dOutputList);
