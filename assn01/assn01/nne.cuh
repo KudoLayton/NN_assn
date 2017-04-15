@@ -24,8 +24,8 @@ public:
 	float sigmoidConst;
 	void forwardCal(Layer& bLayer);
 	void forwardCal(std::vector<float>& inputList);
-	void getGrad(Layer& fLayer);
-	float getGrad(std::vector<float>& answerList); // output: MSE
+	void getGrad(Layer& fLayer, int batchNum = 1);
+	float getGrad(std::vector<float>& answerList, int batchNum = 1); // output: MSE
 	void learnWeight(Layer& bLayer, float learningFactor);
 	void learnWeight(std::vector<float>& inputList, float learningFactor);
 };

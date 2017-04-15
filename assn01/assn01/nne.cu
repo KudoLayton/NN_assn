@@ -143,7 +143,7 @@ void Layer::forwardCal(Layer& bLayer){
 	delete outputList;
 }
 
-void Layer::getGrad(Layer& fLayer) {
+void Layer::getGrad(Layer& fLayer, int batchNum) {
 	int inputNum = nodeList.size();
 	int outputNum = fLayer.nodeList.size();
 	std::vector<Node*> &fNodeList = fLayer.nodeList;
@@ -183,13 +183,13 @@ void Layer::getGrad(Layer& fLayer) {
 	cudaFree(dGradList);
 
 	for (int i = 0; i < inputNum; i++) {
-		nodeList[i]->localGrad = gradList[i];
+		nodeList[i]->localGrad += gradList[i]/batchNum;
 	}
 
 	delete gradList;
 }
 
-float Layer::getGrad(std::vector<float>& answerList) {
+float Layer::getGrad(std::vector<float>& answerList, int batchNum) {
 	int inputNum = nodeList.size();
 	std::vector<float> inputList;
 	std::vector<float> outputList;
@@ -213,7 +213,7 @@ float Layer::getGrad(std::vector<float>& answerList) {
 	cudaMemcpy(gradList, dGradList, inputNum * sizeof(float), cudaMemcpyDeviceToHost);
 
 	for (int i = 0; i < inputNum; i++) {
-		nodeList[i]->localGrad = gradList[i];
+		nodeList[i]->localGrad += gradList[i]/batchNum;
 	}
 	cudaFree(dInputList);
 	cudaFree(dOutputList);
@@ -266,6 +266,7 @@ void Layer::learnWeight(Layer& bLayer, float learningFactor) {
 		for (int j = 0; j < inputNum; j++) {
 			nodeList[i]->inputWeightList[j] = weightList[i * inputNum + j];
 		}
+		nodeList[i]->localGrad = 0;
 	}
 
 	cudaFree(dInputList);
@@ -306,6 +307,7 @@ void Layer::learnWeight(std::vector<float>& inputList, float learningFactor){
 		for (int j = 0; j < inputNum; j++) {
 			nodeList[i]->inputWeightList[j] = weightList[i * inputNum + j];
 		}
+		nodeList[i]->localGrad = 0;
 	}
 
 	cudaFree(dInputList);
