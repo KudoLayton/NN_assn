@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <list>
 #include "cuda_runtime.h"
 
 class Node {
@@ -7,11 +8,14 @@ public:
 	Node();//first input: constant/offset = 0
 	Node(int inputNum);//inputNum: nuber of input (first input: constant/offset = 0)
 	Node(std::vector<float>& inputWeightList, int nodeIndex, int inputWeightLength);
+	float getMiniBatchGrad(float newGrad, int batchNum);
 	~Node();
 	std::vector<float> inputWeightList;
 	float output;
 	float input;
 	float localGrad;
+private:
+	std::list<float> localGradList;
 };
 
 class Layer {

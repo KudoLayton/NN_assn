@@ -32,6 +32,19 @@ Node::Node(std::vector<float>& inputWeightList, int nodeIndex, int inputWeightLe
 
 Node::~Node() {}
 
+float Node::getMiniBatchGrad(float newGrad, int batchNum) {
+	float result;
+	std::list<float>::iterator itr;
+	localGradList.push_back(newGrad);
+	while (localGradList.size() > batchNum)
+		localGradList.pop_front();
+	
+	for (itr = localGradList.begin(); itr != localGradList.end(); itr++) {
+		result = *itr;
+	}
+	return result / localGradList.size();
+}
+
 Layer::Layer() : sigmoidConst(0.01) {}
 
 Layer::Layer(int nodeListLength, int inputWeightLength, float sigmoidConst){
@@ -184,7 +197,7 @@ void Layer::getGrad(Layer& fLayer, int batchNum) {
 
 	for (int i = 0; i < inputNum; i++) {
 		if (batchNum > 1)
-			nodeList[i]->localGrad += gradList[i] / batchNum;
+			nodeList[i]->localGrad = nodeList[i]->getMiniBatchGrad(gradList[i] , batchNum);
 		else
 			nodeList[i]->localGrad = gradList[i];
 	}
@@ -217,7 +230,7 @@ float Layer::getGrad(std::vector<float>& answerList, int batchNum) {
 
 	for (int i = 0; i < inputNum; i++) {
 		if(batchNum > 1)
-			nodeList[i]->localGrad += gradList[i]/batchNum;
+			nodeList[i]->localGrad = nodeList[i]->getMiniBatchGrad(gradList[i], batchNum);
 		else
 			nodeList[i]->localGrad = gradList[i];
 	}
@@ -272,7 +285,7 @@ void Layer::learnWeight(Layer& bLayer, float learningFactor) {
 		for (int j = 0; j < inputNum; j++) {
 			nodeList[i]->inputWeightList[j] = weightList[i * inputNum + j];
 		}
-		nodeList[i]->localGrad = 0;
+		//nodeList[i]->localGrad = 0;
 	}
 
 	cudaFree(dInputList);
@@ -313,7 +326,7 @@ void Layer::learnWeight(std::vector<float>& inputList, float learningFactor){
 		for (int j = 0; j < inputNum; j++) {
 			nodeList[i]->inputWeightList[j] = weightList[i * inputNum + j];
 		}
-		nodeList[i]->localGrad = 0;
+		//nodeList[i]->localGrad = 0;
 	}
 
 	cudaFree(dInputList);
